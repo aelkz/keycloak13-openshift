@@ -3,8 +3,8 @@
 ## Export project variables
 
 ```sh
-export PROJECT_NS=sso-app-demo
-export APP_NAME=keycloak-openbanking
+export PROJECT_NS=openbanking-caixa
+export APP_NAME=keycloak13-custom
 export KEYCLOAK_TEMPLATE=keycloak13-ocp4-x509-https
 ```
 
@@ -12,7 +12,7 @@ export KEYCLOAK_TEMPLATE=keycloak13-ocp4-x509-https
 
 ```sh
 oc delete template keycloak13-ocp4-x509-https -n $PROJECT_NS
-git pull ; oc create  --save-config -f keycloak13-ocp4-x509-https.yaml --namespace=$PROJECT_NS
+git pull ; oc create --save-config -f openshift/keycloak13-ocp4-x509-https.yaml --namespace=$PROJECT_NS
 ```
 
 ## Create git-auth secret
@@ -27,7 +27,6 @@ oc create secret generic git-auth \
 
 ```sh
 echo "eHl6Cg==" | base64 --decode
-echo "Q0FJWEFBWlVSRQ==" | base64 --decode
 ```
 
 ## Delete old objects
