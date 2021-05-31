@@ -1,0 +1,21 @@
+embed-server --server-config=standalone-ha.xml --std-out=echo
+
+echo Configuring log levels...
+run-batch --file=/opt/jboss/tools/cli/loglevel.cli
+
+echo Configuring proxy...
+run-batch --file=/opt/jboss/tools/cli/proxy.cli
+
+echo Configuring hostname...
+run-batch --file=/opt/jboss/tools/cli/hostname.cli
+
+echo Configuring theme...
+run-batch --file=/opt/jboss/tools/cli/theme.cli
+
+echo Configuring theme cache...
+run-batch --file=/opt/jboss/tools/cli/theme-cache.cli
+
+echo Configuring user sessions...
+run-batch --file=/opt/jboss/tools/cli/user-sessions.cli
+
+stop-embedded-server

@@ -1,0 +1,11 @@
+embed-server --server-config=standalone-ha.xml
+batch
+/subsystem=infinispan/cache-container=keycloak/replicated-cache=work:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=sessions:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineSessions:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=clientSessions:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineClientSessions:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=loginFailures:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=actionTokens:write-attribute(name=statistics-enabled, value=${env.CACHE_STATISTICS:true})
+run-batch
+stop-embedded-server

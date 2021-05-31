@@ -1,0 +1,4 @@
+/subsystem=keycloak-server/theme=defaults:read-resource(recursive=true)
+/subsystem=keycloak-server/theme=defaults:write-attribute(name=staticMaxAge,value=${env.KEYCLOAK_THEME_STATIC_MAX_AGE:-1})
+/subsystem=keycloak-server/theme=defaults:write-attribute(name=cacheThemes,value=${env.KEYCLOAK_THEME_CACHE_THEMES:false})
+/subsystem=keycloak-server/theme=defaults:write-attribute(name=cacheTemplates,value=${env.KEYCLOAK_THEME_CACHE_TEMPLATES:false})

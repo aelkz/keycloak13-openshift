@@ -1,0 +1,14 @@
+embed-server --server-config=standalone-ha.xml
+batch
+/socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=remote-cache:add(host=${env.DATAGRID_HOST:localhost}, port=${env.DATAGRID_PORT:11222})
+
+/subsystem=infinispan/cache-container=keycloak/replicated-cache=work/store=remote:add(cache=work,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=sessions/store=remote:add(cache=sessions,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineSessions/store=remote:add(cache=offlineSessions,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=clientSessions/store=remote:add(cache=clientSessions,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineClientSessions/store=remote:add(cache=offlineClientSessions,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=loginFailures/store=remote:add(cache=loginFailures,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=actionTokens/store=remote:add(cache=actionTokens,fetch-state=false, passivation=false, preload=false, purge=false, remote-servers=["remote-cache"], shared=true, properties={rawValues=true, marshaller=org.keycloak.cluster.infinispan.KeycloakHotRodMarshallerFactory, protocolVersion=${env.HOTROD_VERSION:2.8}})
+run-batch
+stop-embedded-server

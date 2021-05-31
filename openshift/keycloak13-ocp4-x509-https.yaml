@@ -1,0 +1,285 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+  keycloak: 13.0.0.GA
+  template: keycloak13-ocp4-x509-https
+  openbanking: "true"
+message: A new Keycloak service has been created in your project. The admin username/password
+  for accessing the master realm via the Keycloak admin console is ${KEYCLOAK_ADMIN_USERNAME}/${KEYCLOAK_ADMIN_PASSWORD}.
+  The HTTPS keystore used for serving secure content, the JGroups keystore used for
+  securing JGroups communications, and server truststore used for securing Keycloak
+  requests were automatically created via OpenShift's service serving x509 certificate
+  secrets.
+metadata:
+  name: keycloak13-ocp4-x509-https
+  annotations:
+    description: An application based on Keycloak 13.0.1 on OpenJDK 11.0.11 image.
+    iconClass: icon-sso
+    openshift.io/display-name: Keycloak 13.0.1 (custom)
+    openshift.io/provider-display-name: Red Hat, Inc.
+    tags: keycloak,jboss,openbanking
+    template.openshift.io/documentation-url: https://www.keycloak.org/documentation
+    template.openshift.io/long-description: This template defines resources needed
+      to develop Keycloak 13.0.1 on OpenJDK server based deployment, securing
+      Keycloak communication using re-encrypt TLS.
+    template.openshift.io/support-url: https://access.redhat.com
+    version: 13.0.1
+objects:
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      name: ${APPLICATION_NAME}
+      labels:
+        application: ${APPLICATION_NAME}
+        app: ${APPLICATION_NAME}
+  - apiVersion: v1
+    kind: BuildConfig
+    metadata:
+      name: ${APPLICATION_NAME}
+      labels:
+        application: ${APPLICATION_NAME}
+        app: ${APPLICATION_NAME}
+    spec:
+      output:
+        to:
+          kind: ImageStreamTag
+          name: "${APPLICATION_NAME}:latest"
+      source:
+        contextDir: ${GIT_CONTEXT_DIR}
+        git:
+          uri: ${GIT_URI}
+          ref: ${GIT_BRANCH}
+        type: Git
+        sourceSecret:
+          name: "git-auth"
+      strategy:
+        type: Docker
+      triggers:
+        - type: GitHub
+          github:
+            secret: "${GITHUB_WEBHOOK_SECRET}"
+        - type: Generic
+          generic:
+            secret: "${GENERIC_WEBHOOK_SECRET}"
+        - type: ImageChange
+          imageChange: {}
+        - type: ConfigChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        description: The web server's http port.
+      labels:
+        app: ${APPLICATION_NAME}
+        application: ${APPLICATION_NAME}
+      name: ${APPLICATION_NAME}
+    spec:
+      ports:
+        - port: 8080
+          targetPort: 8080
+          name: http
+      selector:
+        deploymentConfig: ${APPLICATION_NAME}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        description: The web server's https port.
+        service.beta.openshift.io/serving-cert-secret-name: ${APPLICATION_NAME}-x509-https-secret
+      labels:
+        app: ${APPLICATION_NAME}
+        application: ${APPLICATION_NAME}
+      name: ${APPLICATION_NAME}-secure
+    spec:
+      ports:
+        - port: 8443
+          targetPort: 8443
+          name: https
+      selector:
+        deploymentConfig: ${APPLICATION_NAME}
+  - apiVersion: v1
+    id: ${APPLICATION_NAME}-https
+    kind: Route
+    metadata:
+      annotations:
+        description: Route for application's https service.
+      labels:
+        app: ${APPLICATION_NAME}
+        application: ${APPLICATION_NAME}
+      name: ${APPLICATION_NAME}
+    spec:
+      tls:
+        termination: reencrypt
+        insecureEdgeTerminationPolicy: Redirect
+      to:
+        name: ${APPLICATION_NAME}-secure
+      port:
+        targetPort: https
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      labels:
+        app: ${APPLICATION_NAME}
+        application: ${APPLICATION_NAME}
+      name: ${APPLICATION_NAME}
+    spec:
+      replicas: ${{KEYCLOAK_REPLICAS}}
+      selector:
+        deploymentConfig: ${APPLICATION_NAME}
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: ${APPLICATION_NAME}
+            application: ${APPLICATION_NAME}
+            deploymentConfig: ${APPLICATION_NAME}
+          name: ${APPLICATION_NAME}
+        spec:
+          containers:
+            - env:
+                - name: KEYCLOAK_HOSTNAME
+                  value: ${KEYCLOAK_HOSTNAME}
+                - name: JGROUPS_PING_PROTOCOL
+                  value: dns.DNS_PING
+                - name: JGROUPS_DISCOVERY_PROPERTIES
+                  value: 'dns_query=${APPLICATION_NAME}.${NAMESPACE}.svc.cluster.local'
+                - name: KEYCLOAK_ADMIN_USERNAME
+                  value: ${KEYCLOAK_ADMIN_USERNAME}
+                - name: KEYCLOAK_ADMIN_PASSWORD
+                  value: ${KEYCLOAK_ADMIN_PASSWORD}
+                - name: JAVA_OPTS_APPEND
+                  value: '-Djboss.as.management.blocking.timeout=720'
+                - name: JAVA_INITIAL_MEM_RATIO
+                  value: '70'
+                - name: JAVA_MAX_MEM_RATIO
+                  value: '70'
+                - name: DB_VENDOR
+                  value: '${DB_VENDOR}'
+                - name: DEBUG
+                  value: 'false'
+                - name: DEBUG_PORT
+                  value: '8787'
+              # quay.io/keycloak/keycloak:13.0.1
+              image: ${APPLICATION_NAME}
+              imagePullPolicy: Always
+              resources:
+                limits:
+                  memory: ${MEMORY_LIMIT}
+                  cpu: ${CPU_LIMIT}
+                requests:
+                  cpu: '1'
+                  memory: 2Gi
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /auth/realms/master
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 60
+              name: ${APPLICATION_NAME}
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+              readinessProbe:
+                failureThreshold: 10
+                httpGet:
+                  path: /auth/realms/master
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+              volumeMounts:
+              - mountPath: /etc/x509/https
+                name: ${APPLICATION_NAME}-x509-https-volume
+                readOnly: true
+          terminationGracePeriodSeconds: 75
+          volumes:
+          - name: ${APPLICATION_NAME}-x509-https-volume
+            secret:
+              secretName: ${APPLICATION_NAME}-x509-https-secret
+      triggers:
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${APPLICATION_NAME}
+            from:
+              kind: ImageStreamTag
+              name: ${APPLICATION_NAME}:latest
+          type: ImageChange
+        - type: ConfigChange
+parameters:
+  - description: The name for the application.
+    displayName: Application Name
+    name: APPLICATION_NAME
+    required: true
+    value: keycloak
+  - description: Custom hostname for the Keycloak server.
+    displayName: Custom Keycloak Server Hostname
+    name: KEYCLOAK_HOSTNAME
+  - description: Keycloak Server administrator username
+    displayName: Keycloak Administrator Username
+    from: '[a-zA-Z0-9]{8}'
+    generate: expression
+    name: KEYCLOAK_ADMIN_USERNAME
+    required: true
+  - description: Keycloak Server administrator password
+    displayName: Keycloak Administrator Password
+    from: '[a-zA-Z0-9]{32}'
+    generate: expression
+    name: KEYCLOAK_ADMIN_PASSWORD
+    required: true
+  - description: Keycloak POD replicas. (will not work properly with H2 database if above than 1 replica)
+    displayName: Keycloak POD replicas
+    name: KEYCLOAK_REPLICAS
+    value: "2"
+  - description: Container memory limit.
+    displayName: Container Memory Limit
+    name: MEMORY_LIMIT
+    value: 2Gi
+  - description: Container cpu limit.
+    displayName: Container CPU Limit
+    name: CPU_LIMIT
+    value: "2"
+  - description: Git Context Dir.
+    displayName: Git Context Dir
+    name: GIT_CONTEXT_DIR
+    required: true
+    value: "/"
+  - description: Git URI.
+    displayName: Git URI
+    name: GIT_URI
+    required: true
+  - description: Git Branch.
+    displayName: Git Branch
+    name: GIT_BRANCH
+    required: true
+    value: "master"
+  - displayName: Github Webhook Secret
+    description: GitHub trigger secret
+    name: GITHUB_WEBHOOK_SECRET
+    from: "[a-zA-Z0-9]{8}"
+    generate: expression
+    required: true
+  - displayName: Generic Webhook Secret
+    description: Generic build trigger secret
+    name: GENERIC_WEBHOOK_SECRET
+    from: "[a-zA-Z0-9]{8}"
+    generate: expression
+    required: true
+  - name: DB_VENDOR
+    displayName: DB Vendor
+    description: 'DB vendor (H2, POSTGRES, MSSQL, MYSQL or MARIADB)'
+    value: H2
+    required: true
+  - name: NAMESPACE
+    displayName: Namespace used for DNS discovery
+    description: >-
+      This namespace is a part of DNS query sent to Kubernetes API. This query
+      allows the DNS_PING protocol to extract cluster members. This parameter
+      might be removed once https://issues.jboss.org/browse/JGRP-2292 is
+      implemented.
+    required: true
